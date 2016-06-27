@@ -1,0 +1,6 @@
+-cpu=rx600
+-lang=c
+-output=obj="C:\WorkSpace\rxtest\rxtest\Debug\ns-build3.obj"
+-debug
+"C:\WorkSpace\rxtest\rxtest\ns-build3.c"
+-nologo

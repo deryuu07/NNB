@@ -1,0 +1,6 @@
+-cpu=rx600
+-lang=c
+-output=obj="C:\WorkSpace\rxtest\rxtest\Debug\Date_Flash.obj"
+-debug
+"C:\WorkSpace\rxtest\rxtest\Date_Flash.c"
+-nologo

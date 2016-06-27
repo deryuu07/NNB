@@ -1,0 +1,6 @@
+-cpu=rx600
+-lang=c
+-output=obj="C:\WorkSpace\rxtest\rxtest\Debug\AD_convert.obj"
+-debug
+"C:\WorkSpace\rxtest\rxtest\AD_convert.c"
+-nologo

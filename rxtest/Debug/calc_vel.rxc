@@ -1,0 +1,6 @@
+-cpu=rx600
+-lang=c
+-output=obj="C:\WorkSpace\rxtest\rxtest\Debug\calc_vel.obj"
+-debug
+"C:\WorkSpace\rxtest\rxtest\calc_vel.c"
+-nologo

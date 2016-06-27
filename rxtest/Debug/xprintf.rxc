@@ -1,0 +1,6 @@
+-cpu=rx600
+-lang=c
+-output=obj="C:\WorkSpace\rxtest\rxtest\Debug\xprintf.obj"
+-debug
+"C:\WorkSpace\rxtest\rxtest\xprintf.c"
+-nologo

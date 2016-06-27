@@ -1,0 +1,6 @@
+-cpu=rx600
+-lang=c
+-output=obj="C:\WorkSpace\rxtest\rxtest\Debug\RX_sci1.obj"
+-debug
+"C:\WorkSpace\rxtest\rxtest\RX_sci1.c"
+-nologo

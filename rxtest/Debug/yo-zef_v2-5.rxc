@@ -1,0 +1,6 @@
+-cpu=rx600
+-lang=c
+-output=obj="C:\WorkSpace\rxtest\rxtest\Debug\yo-zef_v2-5.obj"
+-debug
+"C:\WorkSpace\rxtest\rxtest\yo-zef_v2-5.c"
+-nologo
