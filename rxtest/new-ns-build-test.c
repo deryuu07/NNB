@@ -9,7 +9,7 @@ short gyro=0;
 
 #define PARA_SIZE 20
 float SpeedPara[PARA_SIZE] = {1000.0, 1200.0, 1500.0, 1700.0, 1900.0,  //0~9直線用，10~19カーブ用
-							  2000.0, 2000.0, 2000.0, 2000.0, 2000.0,
+							  2000.0, 2300.0, 2500.0, 2700.0, 3000.0,
 							  1050.0, 1100.0, 1200.0, 1300.0, 1400.0, 
  							  1500.0, 1600.0, 1700.0, 1800.0, 1900.0};
 
@@ -55,6 +55,12 @@ void get_gc_sens()
 	SENSOR.Original[9]-=SensOff[9];
 	SensLEDGoal=OFF;
 	for(i=0; i<101; i++){}
+	
+	if(FLAG.Reverse==1){
+		i=SENSOR.Original[8];
+		SENSOR.Original[8]=SENSOR.Original[9];
+		SENSOR.Original[9]=i;
+	}
 }
 
 void get_sens()
@@ -320,56 +326,58 @@ void init_param()
 	FLAG.Goal=0;
 	FLAG.Corner=0;
 	FLAG.FirstAccel=0;
+	FLAG.Reverse=0;
 	GYRO_SUM_ERR=0.0;
 	EG_stop_count=0;
+	Angle=0.0;
 }
 
 void ch_para()
 {
+	short i=0; 
+	
 	switch(select_mode()){
 		case 0: 
 			K_P_GYRO=3.0;
 			first_K_G=K_P_GYRO;
-			K_D_GYRO=0.01;
+			K_D_GYRO=1.0;
+			first_K_D=K_D_GYRO;
 			K_I_GYRO=0.001;
-			GAIN.SensP=1.5;
-			GAIN.SensD=0.0;
-			FGAIN.SensP=GAIN.SensP;
+			first_K_I=K_I_GYRO;
 			VEL.BasicDesire=1000.0;
 			break;
 			
 		case 1: 
 			K_P_GYRO=3.0;
 			first_K_G=K_P_GYRO;
-			K_D_GYRO=0.0;
+			K_D_GYRO=1.0;
 			K_I_GYRO=0.001;
-			GAIN.SensP=2.0;
-			GAIN.SensD=0.0;
-			FGAIN.SensP=GAIN.SensP;
 			VEL.BasicDesire=1100.0;
 			break;
 
 		case 2: 
 			K_P_GYRO=3.0;
 			first_K_G=K_P_GYRO;
-			K_D_GYRO=0.5;
+			K_D_GYRO=1.0;
 			K_I_GYRO=0.001;
-			GAIN.SensP=2.5;
-			GAIN.SensD=0.0;
-			FGAIN.SensP=GAIN.SensP;
 			VEL.BasicDesire=1200.0;
 			break;
 			
 		case 3: 
 			K_P_GYRO=3.0;
 			first_K_G=K_P_GYRO;
-			K_D_GYRO=0.0;
+			K_D_GYRO=1.0;
 			K_I_GYRO=0.001;
-			GAIN.SensP=3.0;
-			GAIN.SensD=0.0;
-			FGAIN.SensP=GAIN.SensP;
-			VEL.BasicDesire=1300.0;
+			VEL.BasicDesire=1250.0;
 			break;		
+	}
+	
+	for(i=0; i<COURSE_SIZE; i++){
+		VEL.Now[i]=calc_vel(VEL.BasicDesire, accel, COURSE_DATA.Dis[i], COURSE_DATA.Course[i]);
+		if(COURSE_DATA.Dis[i+1]==0){
+			VEL.Now[i]=9;
+		}
+		COURSE_DATA.AccelDis[i]=((SpeedPara[VEL.Now[i]]*SpeedPara[VEL.Now[i]]) - (VEL.BasicDesire*VEL.BasicDesire))/(2.0*accel);
 	}
 	reset();
 }
@@ -732,12 +740,13 @@ void goal_check()
 		else{
 			VEL.Desire=0.0;
 			for(i=0; i<COURSE_SIZE; i++){
+				COURSE_DATA.Dis[i]=0;
+				COURSE_DATA.Course[i]=0;
+				
 				rl=(COURSE_DATA.Right[i]+COURSE_DATA.Left[i])/2;
 				COURSE_DATA.Dis[i]=(short)(rl*mmpp);
 				curvature=(short)(rl*TRED/(COURSE_DATA.Right[i]-COURSE_DATA.Left[i]));
 				COURSE_DATA.Course[i]=curvature;
-				VEL.Now[i]=calc_vel(VEL.BasicDesire, accel, COURSE_DATA.Dis[i], COURSE_DATA.Course[i]);
-				COURSE_DATA.AccelDis[i]=((SpeedPara[VEL.Now[i]]*SpeedPara[VEL.Now[i]]) - (VEL.BasicDesire*VEL.BasicDesire))/(2.0*accel);
 			}
 			FLAG.Stop=0;
 		}
@@ -751,16 +760,18 @@ void corner_check()
 			FLAG.Corner=1;
 			COURSE_DATA.Right[ENC.Count]=ENC.Right;
 			COURSE_DATA.Left[ENC.Count]=ENC.Left;
+			COURSE_DATA.Angle[ENC.Count]=(char)Angle;
 			ENC.Count++;		
 			ENC.R_L=0;
 			ENC.Right=0;	
 			ENC.Left=0;	
+			Angle=0.0;
 			LED1=LED_ON;
 		}
 	}	
 	if(FLAG.Corner==1){
 		BUZZ_ON5();
-		if((ENC.R_L*mmpp) > 40){
+		if((ENC.R_L*mmpp) > 70){
 			LED1=LED_OFF;
 			FLAG.Corner=0;		
 		}
@@ -824,13 +835,24 @@ void TIMER_CALL()
 						}
 					}
 					else if((now_dis > COURSE_DATA.AccelDis[ENC.Count]) && (now_dis < (COURSE_DATA.Dis[ENC.Count]-COURSE_DATA.AccelDis[ENC.Count]))){
-						VEL.Desire=SpeedPara[VEL.Now[ENC.Count]];					
+						if(VEL.Desire < SpeedPara[VEL.Now[ENC.Count]]){
+							VEL.Desire+=(accel/1000.0);
+						}
+						else{
+							VEL.Desire=SpeedPara[VEL.Now[ENC.Count]];
+						}
+					
+						if(VEL.Now[ENC.Count] > 0 && VEL.Now[ENC.Count] < 10){
+							K_P_GYRO=first_K_G*0.7;
+							K_D_GYRO=first_K_D*15.0;
+						}
 					}
 					else if((now_dis >= (COURSE_DATA.Dis[ENC.Count]-COURSE_DATA.AccelDis[ENC.Count]))){
 						if(VEL.Desire > VEL.BasicDesire){
 							VEL.Desire-=(accel/1000.0);
 						}
 						else{
+							K_D_GYRO=first_K_D;
 							VEL.Desire=VEL.BasicDesire;
 						}
 					}
@@ -873,7 +895,7 @@ void TIMER_CALL()
 		if(FLAG.Circle==3){		
 			if(LOG.Timing==10){
 				if(LOG.Count<1000){
-					buf[3]=(short)VEL.Desire;
+					buf[3]=(short)Angle;
 					buf[2]=(short)VEL.R_L;
 					buf[1]=Desire_gyro;
 					buf[0]=gyro;
@@ -907,6 +929,9 @@ void TIMER_CALL2()
 	MTU3.TSR.BIT.TGFA=0;	//割り込み許可
 	if(start0==1){								
 		gyro=gyro_sensitybity*get_gyro();
+		if(FLAG.Goal!=3 && FLAG.Goal > 0){
+			Angle+=((float)gyro*0.001);
+		}
 	}
 }
 
@@ -946,6 +971,7 @@ void out_course()
 		COURSE_DATA.AccelDis[i]=((SpeedPara[VEL.Now[i]]*SpeedPara[VEL.Now[i]]) - (VEL.BasicDesire*VEL.BasicDesire))/(2.0*accel);
 		dec_out((short)VEL.Now[i], 6); outs(" ");
 		dec_out((short)COURSE_DATA.AccelDis[i], 6); outs(" ");
+		dec_out((short)COURSE_DATA.Angle[i], 6); outs(" ");
 		outs("\n");
 	}
 }
@@ -1090,6 +1116,57 @@ void search_max()
 
 	for(i=0; i<SensSize; i++)
 		SENSOR.Max_Min[i]=SENSOR.MaxValue[i]-SENSOR.MinValue[i];
+}
+
+void r_trace2()
+{
+	init_param();
+	FLAG.Reverse=1;
+	ch_para();
+	FLAG.Circle=2;
+	VEL.Desire=0.0;
+	init_ENC();
+	FLAG.Stop=1;
+	LOG.LocalTime=TimeCount;
+	fld_erase_2KB(11);
+	fld_erase_2KB(12);
+	fld_erase_2KB(13);
+	fld_erase_2KB(14);
+	start0=1;
+	mot_STB(START_A);
+
+	while(FLAG.Stop){}
+	start0=0;
+	mot_STB(0);
+	init_ENC();	
+	TIMER_WAIT(1000);	
+	reset();
+}
+
+void r_trace()
+{
+	init_param();
+	init_log();
+	FLAG.Reverse=1;
+	ch_para();
+	init_ENC();
+	FLAG.Circle=1;
+	VEL.Desire=0.0;
+	FLAG.Stop=1;
+	LOG.LocalTime=TimeCount;
+	fld_erase_2KB(11);
+	fld_erase_2KB(12);
+	fld_erase_2KB(13);
+	fld_erase_2KB(14);
+	start0=1;
+	mot_STB(START_A);
+
+	while(FLAG.Stop){}
+	start0=0;
+	mot_STB(0);
+	init_ENC();	
+	TIMER_WAIT(1000);	
+	reset();
 }
 
 void trace2()
@@ -1303,7 +1380,7 @@ void ch_debug_mode(int mode)
 	switch(mode){
 		case 0: search_max(); 	break;
 		case 1: para_load();	break;
-		case 2: out_sens();		break;
+		case 2: r_trace();		break;//out_sens();		break;
 		case 3: out_gyro();		break;
 	}
 }
