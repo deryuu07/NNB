@@ -8,7 +8,7 @@ unsigned short SPI_out=0;
 short gyro=0;
 
 #define PARA_SIZE 20
-float SpeedPara[PARA_SIZE] = {1200.0, 1300.0, 1500.0, 1700.0, 1900.0,  //0~9直線用，10~19カーブ用
+float SpeedPara[PARA_SIZE] = {1000.0, 1200.0, 1500.0, 1700.0, 1900.0,  //0~9直線用，10~19カーブ用
 							  2000.0, 2300.0, 2500.0, 2700.0, 3000.0,
 							  1050.0, 1100.0, 1200.0, 1300.0, 1400.0, 
  							  1500.0, 1600.0, 1700.0, 1800.0, 1900.0};
@@ -329,6 +329,7 @@ void init_param()
 	FLAG.Reverse=0;
 	GYRO_SUM_ERR=0.0;
 	EG_stop_count=0;
+	Angle=0.0;
 }
 
 void ch_para()
@@ -344,10 +345,6 @@ void ch_para()
 			K_I_GYRO=0.001;
 			first_K_I=K_I_GYRO;
 			VEL.BasicDesire=1000.0;
-			for(i=0; i<(PARA_SIZE/2); i++){
-				SpeedPara[i]=VEL.BasicDesire+(200.0*i);
-				SpeedPara[i+10]=VEL.BasicDesire+(100.0*i);
-			}
 			break;
 			
 		case 1: 
@@ -356,10 +353,6 @@ void ch_para()
 			K_D_GYRO=1.0;
 			K_I_GYRO=0.001;
 			VEL.BasicDesire=1100.0;
-			for(i=0; i<(PARA_SIZE/2); i++){
-				SpeedPara[i]=VEL.BasicDesire+(200.0*i);
-				SpeedPara[i+10]=VEL.BasicDesire+(100.0*i);
-			}
 			break;
 
 		case 2: 
@@ -368,10 +361,6 @@ void ch_para()
 			K_D_GYRO=1.0;
 			K_I_GYRO=0.001;
 			VEL.BasicDesire=1200.0;
-			for(i=0; i<(PARA_SIZE/2); i++){
-				SpeedPara[i]=VEL.BasicDesire+(200.0*i);
-				SpeedPara[i+10]=VEL.BasicDesire+(100.0*i);
-			}
 			break;
 			
 		case 3: 
@@ -380,10 +369,6 @@ void ch_para()
 			K_D_GYRO=1.0;
 			K_I_GYRO=0.001;
 			VEL.BasicDesire=1250.0;
-			for(i=0; i<(PARA_SIZE/2); i++){
-				SpeedPara[i]=VEL.BasicDesire+(200.0*i);
-				SpeedPara[i+10]=VEL.BasicDesire+(100.0*i);
-			}
 			break;		
 	}
 	
@@ -666,8 +651,6 @@ char calc_vel(float FirstVel, float Accel, float NowDis, float NowCurve)
 
 void goal_check2()
 {	
-	short i,j=0;
-	
 	/***スタート処理***/
 	if(FLAG.Goal==0 && SENSOR.Calibrated[GOAL] > SENS_THRE){
 		FLAG.Goal=1;
@@ -691,11 +674,10 @@ void goal_check2()
 	}
 	if(FLAG.Goal==4){
 		if(VEL.Desire > 0.0){
-			VEL.Desire-=(accel/1000.0);
+			VEL.Desire-=(2000.0/1000.0);
 		}
 		else{
 			VEL.Desire=0.0;
-			for(i=0; i<500; i++){}
 			FLAG.Stop=0;
 		}
 	}
@@ -724,7 +706,7 @@ void corner_check2()
 	
 void goal_check()
 {
-	short i,j=0;
+	short i=0;
 	short curvature=0;
 	long rl=0;
 	
@@ -753,7 +735,7 @@ void goal_check()
 	}
 	if(FLAG.Goal==4){
 		if(VEL.Desire > 0.0){
-			VEL.Desire-=(accel/1000.0);
+			VEL.Desire-=(2000.0/1000.0);
 		}
 		else{
 			VEL.Desire=0.0;
@@ -766,7 +748,6 @@ void goal_check()
 				curvature=(short)(rl*TRED/(COURSE_DATA.Right[i]-COURSE_DATA.Left[i]));
 				COURSE_DATA.Course[i]=curvature;
 			}
-			for(i=0; i<500; i++){}
 			FLAG.Stop=0;
 		}
 	}
@@ -779,13 +760,12 @@ void corner_check()
 			FLAG.Corner=1;
 			COURSE_DATA.Right[ENC.Count]=ENC.Right;
 			COURSE_DATA.Left[ENC.Count]=ENC.Left;
-			COURSE_DATA.AveGyro[ENC.Count]=(short)(SumGyro/GyroCount);
-			SumGyro=0;
-			GyroCount=0;
+			COURSE_DATA.Angle[ENC.Count]=(char)Angle;
 			ENC.Count++;		
 			ENC.R_L=0;
 			ENC.Right=0;	
 			ENC.Left=0;	
+			Angle=0.0;
 			LED1=LED_ON;
 		}
 	}	
@@ -912,10 +892,10 @@ void TIMER_CALL()
 		MOT_IN_L=(speed_L - u_w - u)*PWM_MAX/batt;	
 		mot_drive(MOT_IN_R, MOT_IN_L);
 		
-		if(FLAG.Circle==1){		
-			if(LOG.Timing==1){
+		if(FLAG.Circle==3){		
+			if(LOG.Timing==10){
 				if(LOG.Count<1000){
-					buf[3]=0;
+					buf[3]=(short)Angle;
 					buf[2]=(short)VEL.R_L;
 					buf[1]=Desire_gyro;
 					buf[0]=gyro;
@@ -949,8 +929,9 @@ void TIMER_CALL2()
 	MTU3.TSR.BIT.TGFA=0;	//割り込み許可
 	if(start0==1){								
 		gyro=gyro_sensitybity*get_gyro();
-		SumGyro+=(long)gyro;
-		GyroCount++;
+		if(FLAG.Goal!=3 && FLAG.Goal > 0){
+			Angle+=((float)gyro*0.001);
+		}
 	}
 }
 
@@ -990,7 +971,7 @@ void out_course()
 		COURSE_DATA.AccelDis[i]=((SpeedPara[VEL.Now[i]]*SpeedPara[VEL.Now[i]]) - (VEL.BasicDesire*VEL.BasicDesire))/(2.0*accel);
 		dec_out((short)VEL.Now[i], 6); outs(" ");
 		dec_out((short)COURSE_DATA.AccelDis[i], 6); outs(" ");
-		dec_out((short)COURSE_DATA.AveGyro[i], 6); outs(" ");
+		dec_out((short)COURSE_DATA.Angle[i], 6); outs(" ");
 		outs("\n");
 	}
 }
@@ -1400,7 +1381,7 @@ void ch_debug_mode(int mode)
 		case 0: search_max(); 	break;
 		case 1: para_load();	break;
 		case 2: r_trace();		break;//out_sens();		break;
-		case 3: r_trace2();		break;
+		case 3: out_gyro();		break;
 	}
 }
 
